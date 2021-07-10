@@ -83,11 +83,11 @@ func CAHandler(w http.ResponseWriter, r *http.Request) {
 	// 	fmt.Println("[", i, "]", splitStr)
 	// }
 
-	if len(cmdSplit) > 2 {
+	if len(cmdSplit) > 1 {
 		fmt.Fprintf(w, "-----BEGIN CERTIFICATE-----\n"+cmdSplit[1]+"\n-----END CERTIFICATE-----\n")
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, fmt.Sprintf("Certificate index out of range %s", err))
+		fmt.Fprintf(w, fmt.Sprintf("Certificate index out of range"))
 
 		return
 	}
