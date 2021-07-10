@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -19,12 +21,45 @@ func CAHandler(w http.ResponseWriter, r *http.Request) {
 	// fmt.Println("[server url]", serverAddress)
 	// fmt.Println("[server port]", serverPort)
 
+	// Check if valid domain name
+	// https://stackoverflow.com/questions/7930751/regexp-for-subdomain
+	match, _ := regexp.MatchString("^[a-zA-Z0-9][a-zA-Z0-9.-]+[a-zA-Z0-9]$", serverAddress)
+
+	if !match {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Domain name invalid. \""+serverAddress+"\" is not a valid domain name."+func() string {
+
+			if strings.Contains(serverAddress, "poweroff") ||
+				strings.Contains(serverAddress, "reboot") ||
+				strings.Contains(serverAddress, "sudo") {
+				return " Nice try though."
+			} else {
+				return ""
+			}
+		}())
+		return
+	}
+
+	// Try to parse port if valid integer
+	_, serverPortConvErr := strconv.Atoi(serverPort)
+
+	if serverPortConvErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Port invalid. \""+serverPort+"\" is not a valid port.")
+
+		return
+	}
+
 	cmd := exec.Command("bash", "-c", "/usr/bin/openssl s_client -showcerts -servername "+serverAddress+" -connect "+serverAddress+":"+serverPort+" </dev/null")
 
 	stdout, err := cmd.Output()
 
 	if err != nil {
-		fmt.Println("Error executing cmd")
+		fmt.Println("Error executing cmd", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Exec error. Maybe domain name invalid?")
+
 		return
 	}
 
@@ -50,7 +85,13 @@ func CAHandler(w http.ResponseWriter, r *http.Request) {
 
 	if len(cmdSplit) > 2 {
 		fmt.Fprintf(w, "-----BEGIN CERTIFICATE-----\n"+cmdSplit[1]+"\n-----END CERTIFICATE-----\n")
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, fmt.Sprintf("Certificate index out of range %s", err))
+
+		return
 	}
+
 }
 
 func main() {
